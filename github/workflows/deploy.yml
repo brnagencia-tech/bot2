@@ -1,0 +1,80 @@
+name: Deploy Manual
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Se seus secrets estão em um AMBIENTE chamado "production", descomente a linha abaixo:
+    # environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Falha cedo se o secret estiver vazio/ausente
+      - name: Sanity check secrets
+        run: |
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+            echo "ERRO: SSH_PRIVATE_KEY está vazio/ausente. Verifique Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+          if [ -z "${{ secrets.SSH_HOST }}" ] || [ -z "${{ secrets.SSH_USER }}" ]; then
+            echo "ERRO: SSH_HOST e/ou SSH_USER não configurados."
+            exit 1
+          fi
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Rsync código para o servidor
+        run: |
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='vendor' \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.APP_PATH }}/
+
+      - name: Comandos remotos (deploy)
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -euo pipefail
+            cd '${{ secrets.APP_PATH }}'
+
+            php artisan down || true
+
+            # PHP
+            if ! command -v composer >/dev/null 2>&1; then
+              php -r "copy('https://getcomposer.org/installer','composer-setup.php');"
+              php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+              rm -f composer-setup.php
+            fi
+            composer install --no-dev -o --prefer-dist --no-interaction
+            php artisan migrate --force || true
+
+            # Front (Vite)
+            install -d -m 775 -o ${{ secrets.WEB_USER }} -g ${{ secrets.WEB_GROUP }} /var/www/.npm
+            rm -rf node_modules
+            npm ci --no-audit --no-fund || npm i --no-audit --no-fund
+            npx vite build
+            test -f public/build/manifest.json || (echo "Manifest ausente!"; exit 1)
+
+            # Caches
+            php artisan optimize:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Reinicia FPM
+            systemctl restart '${{ secrets.PHP_FPM_SERVICE }}'
+
+            php artisan up
+          EOF
