@@ -39,4 +39,13 @@ return [
         'base_uri' => env('AI_SERVICE_BASE_URL', 'http://localhost:9000'),
     ],
 
+    'whatsapp' => [
+        'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
+        'token' => env('WHATSAPP_TOKEN'),
+        'phone_number_id' => env('WHATSAPP_PHONE_NUMBER_ID'),
+        'app_secret' => env('WHATSAPP_APP_SECRET'),
+        'enforce_signature' => env('WHATSAPP_ENFORCE_SIGNATURE', false),
+        'graph_version' => env('WHATSAPP_GRAPH_VERSION', 'v20.0'),
+    ],
+
 ];
