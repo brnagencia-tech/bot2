@@ -41,6 +41,7 @@ return [
 
     'whatsapp_web' => [
         'base_uri' => env('WHATSAPP_WEB_BASE_URL', 'http://localhost:3001'),
+        'shared_secret' => env('WAWEB_SHARED_SECRET'),
     ],
 
     'whatsapp' => [

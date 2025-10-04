@@ -4,16 +4,12 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\WhatsAppController;
 use App\Http\Controllers\WhatsAppWebController;
-use App\Http\Controllers\WhatsAppCloudController;
+use App\Http\Controllers\WaWebInboundController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return to_route('login');
-});
+Route::redirect('/', '/login');
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::view('/dashboard', 'dashboard')->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -31,18 +27,25 @@ Route::middleware('auth')->group(function () {
     Route::post('/whatsapp/send', [WhatsAppWebController::class, 'send'])->name('whatsapp.send');
     Route::post('/whatsapp/reset', [WhatsAppWebController::class, 'reset'])->name('whatsapp.reset');
 
-    // WhatsApp Cloud API (oficial)
-    Route::get('/whatsapp-cloud', [WhatsAppCloudController::class, 'index'])->name('whatsapp.cloud.index');
-    Route::post('/whatsapp-cloud/send', [WhatsAppCloudController::class, 'send'])->name('whatsapp.cloud.send');
+    // Removed WhatsApp Cloud API routes
 
     // Configurações
     Route::view('/settings', 'settings.index')->name('settings.index');
+
+    // Menus adicionais
+    Route::view('/flows', 'flows.index')->name('flows.index');
+    Route::view('/agent', 'agent.index')->name('agent.index');
+    Route::get('/contacts', [\App\Http\Controllers\ContactController::class, 'index'])->name('contacts.index');
+    Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat.index');
+    Route::get('/chat/messages', [\App\Http\Controllers\ChatController::class, 'messages'])->name('chat.messages');
+    Route::post('/chat/send', [\App\Http\Controllers\ChatController::class, 'send'])->name('chat.send');
 });
 
 require __DIR__.'/auth.php';
 
 // WhatsApp Cloud API Webhook (public, sem CSRF)
-Route::get('/webhook/whatsapp', [WhatsAppController::class, 'verify'])
-    ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
-Route::post('/webhook/whatsapp', [WhatsAppController::class, 'receive'])
+// Removed Cloud API webhook; using WhatsApp Web gateway instead.
+
+// Inbound from WhatsApp Web gateway
+Route::post('/waweb/inbound', [WaWebInboundController::class, 'inbound'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);

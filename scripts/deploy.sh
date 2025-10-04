@@ -21,6 +21,7 @@ abort() { echo "[deploy] ERROR: $*" >&2; exit 1; }
 : "${APP:?APP não definido}"
 
 PHP_FPM_SERVICE="${PHP_FPM_SERVICE:-php8.4-fpm}"
+APP_HEALTH_URL="${APP_HEALTH_URL:-http://localhost/up}"
 WEB_USER="${WEB_USER:-www-data}"
 WEB_GROUP="${WEB_GROUP:-www-data}"
 BUILD_ASSETS="${BUILD_ASSETS:-false}"
@@ -75,6 +76,9 @@ rsync -a --delete \
 
 cd "$APP"
 
+# Remover possíveis arquivos inválidos fora do repo que quebrem o PHP
+[ -f "_admin_dash_hotfix.php" ] && { log "Removendo arquivo inválido _admin_dash_hotfix.php"; rm -f _admin_dash_hotfix.php; }
+
 log "Ajustando permissões de storage e cache"
 mkdir -p storage bootstrap/cache
 chown -R "$WEB_USER":"$WEB_GROUP" storage bootstrap/cache || true
@@ -108,11 +112,23 @@ fi
 log "Executando migrações"
 php artisan migrate --force --no-interaction || abort "Falha ao migrar banco de dados"
 
-log "Limpando e gerando caches do Laravel"
-php artisan optimize:clear
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+log "Limpando caches do Laravel"
+php artisan optimize:clear || true
+
+log "Gerando config cache"
+if ! php artisan config:cache; then
+  log "Falha em config:cache → limpando caches e seguindo sem cache"
+  php artisan optimize:clear || true
+fi
+
+log "Gerando route cache (ignora closures)"
+if ! php artisan route:cache; then
+  log "route:cache falhou (rotas com closures?) → mantendo sem cache"
+  php artisan optimize:clear || true
+fi
+
+log "Gerando view cache"
+php artisan view:cache || true
 
 log "Reiniciando serviço PHP-FPM ($PHP_FPM_SERVICE)"
 systemctl restart "$PHP_FPM_SERVICE"
@@ -123,6 +139,17 @@ php artisan up || true
 # Gerenciar serviço do WhatsApp Web (Node/Baileys)
 if [ "$WAWEB_MANAGE" = "true" ]; then
   log "Instalando/atualizando serviço systemd do WhatsApp Web ($WAWEB_SERVICE_NAME)"
+  # Instala dependências do whatsapp_service, se npm estiver disponível
+  if command -v npm >/dev/null 2>&1; then
+    log "Preparando ambiente npm e diretório do whatsapp_service"
+    install -d -m 775 -o "$WAWEB_USER" -g "$WAWEB_GROUP" "$NPM_CACHE_DIR"
+    install -d -m 775 -o "$WAWEB_USER" -g "$WAWEB_GROUP" "$WAWEB_WORKDIR"
+    chown -R "$WAWEB_USER":"$WAWEB_GROUP" "$WAWEB_WORKDIR"
+    log "Instalando dependências do whatsapp_service (como $WAWEB_USER)"
+    (cd "$WAWEB_WORKDIR" && sudo -u "$WAWEB_USER" env HOME=/var/www npm install --no-audit --no-fund) || true
+  else
+    log "npm não encontrado; garanta Node 18+ para o serviço WhatsApp Web"
+  fi
   UNIT_TEMPLATE="$APP/scripts/systemd/bot-whatsapp-web.service"
   if [ -f "$UNIT_TEMPLATE" ]; then
     TMP_UNIT=$(mktemp)
@@ -130,6 +157,9 @@ if [ "$WAWEB_MANAGE" = "true" ]; then
         -e "s|{{USER}}|$WAWEB_USER|g" \
         -e "s|{{GROUP}}|$WAWEB_GROUP|g" \
         -e "s|{{WORKDIR}}|$WAWEB_WORKDIR|g" \
+        -e "s|{{WAWEB_SHARED_SECRET}}|${WAWEB_SHARED_SECRET:-}|g" \
+        -e "s|{{LARAVEL_BASE_URL}}|${LARAVEL_BASE_URL:-}|g" \
+        -e "s|{{TENANT_ID}}|${TENANT_ID:-tenant-1}|g" \
         "$UNIT_TEMPLATE" > "$TMP_UNIT"
     install -o root -g root -m 0644 "$TMP_UNIT" \
       "/etc/systemd/system/${WAWEB_SERVICE_NAME}.service"
@@ -143,4 +173,38 @@ if [ "$WAWEB_MANAGE" = "true" ]; then
   fi
 fi
 
+# Grava marcador de versão (.release)
+{
+  COMMIT="n/a"; MSG="local sync"; SRC="local"
+  if [ -d "$TMP_DIR/.git" ]; then
+    COMMIT=$(git -C "$TMP_DIR" rev-parse --short HEAD 2>/dev/null || echo "n/a")
+    MSG=$(git -C "$TMP_DIR" log -1 --pretty=%s 2>/dev/null || echo "")
+    SRC="github"
+  elif [ -d /tmp/app-release/.git ]; then
+    COMMIT=$(git -C /tmp/app-release rev-parse --short HEAD 2>/dev/null || echo "n/a")
+    MSG=$(git -C /tmp/app-release log -1 --pretty=%s 2>/dev/null || echo "")
+    SRC="github"
+  fi
+  printf "commit=%s | %s | source=%s | time=%s\n" \
+    "$COMMIT" "$MSG" "$SRC" "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+    > "$APP/.release"
+  chown "$WEB_USER:$WEB_GROUP" "$APP/.release" 2>/dev/null || true
+  log "Release marker gravado em $APP/.release -> $(cat "$APP/.release" 2>/dev/null)"
+} || true
+
 log "Deploy concluído com sucesso."
+
+# Health check final
+sleep 1
+if command -v curl >/dev/null 2>&1; then
+  if curl -fsS -m 5 "$APP_HEALTH_URL" >/dev/null; then
+    log "Health OK: $APP_HEALTH_URL"
+  else
+    log "Health FAIL em $APP_HEALTH_URL"
+    log "Últimas linhas do log Laravel:"
+    tail -n 200 storage/logs/laravel.log 2>/dev/null || true
+    exit 1
+  fi
+else
+  log "curl não disponível para health-check"
+fi

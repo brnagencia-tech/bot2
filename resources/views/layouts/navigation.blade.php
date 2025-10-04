@@ -15,11 +15,20 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
-                    <x-nav-link :href="route('whatsapp.cloud.index')" :active="request()->routeIs('whatsapp.cloud.*')">
-                        {{ __('WhatsApp Cloud') }}
-                    </x-nav-link>
                     <x-nav-link :href="route('whatsapp.index')" :active="request()->routeIs('whatsapp.*')">
                         {{ __('WhatsApp (Web)') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('chat.index')" :active="request()->routeIs('chat.*')">
+                        {{ __('Chat') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('contacts.index')" :active="request()->routeIs('contacts.*')">
+                        {{ __('Contatos') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('flows.index')" :active="request()->routeIs('flows.*')">
+                        {{ __('Flows') }}
+                    </x-nav-link>
+                    <x-nav-link :href="route('agent.index')" :active="request()->routeIs('agent.*')">
+                        {{ __('Agente de IA') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -76,11 +85,20 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('whatsapp.cloud.index')" :active="request()->routeIs('whatsapp.cloud.*')">
-                {{ __('WhatsApp Cloud') }}
-            </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('whatsapp.index')" :active="request()->routeIs('whatsapp.*')">
                 {{ __('WhatsApp (Web)') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('chat.index')" :active="request()->routeIs('chat.*')">
+                {{ __('Chat') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('contacts.index')" :active="request()->routeIs('contacts.*')">
+                {{ __('Contatos') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('flows.index')" :active="request()->routeIs('flows.*')">
+                {{ __('Flows') }}
+            </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('agent.index')" :active="request()->routeIs('agent.*')">
+                {{ __('Agente de IA') }}
             </x-responsive-nav-link>
         </div>
 

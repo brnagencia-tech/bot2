@@ -6,10 +6,12 @@ After=network.target
 WorkingDirectory={{WORKDIR}}
 ExecStart=/usr/bin/env node server.js
 Environment=PORT={{PORT}}
+Environment=WAWEB_SHARED_SECRET={{WAWEB_SHARED_SECRET}}
+Environment=LARAVEL_BASE_URL={{LARAVEL_BASE_URL}}
+Environment=TENANT_ID={{TENANT_ID}}
 Restart=always
 User={{USER}}
 Group={{GROUP}}
 
 [Install]
 WantedBy=multi-user.target
-
