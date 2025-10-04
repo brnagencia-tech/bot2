@@ -1,0 +1,93 @@
+name: Deploy to Droplet (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch ou tag para deploy"
+        required: false
+        default: "main"
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ${{ github.event.inputs.ref || 'main' }}
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.event.inputs.ref || 'main' }}
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Trust hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H github.com >> ~/.ssh/known_hosts
+
+      - name: App down (manutenção)
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd '${{ secrets.APP_PATH }}' && php artisan down || true"
+
+      - name: Rsync código para o servidor
+        run: |
+          rsync -az --delete \
+            --exclude=".git/" \
+            --exclude="node_modules/" \
+            --exclude="vendor/" \
+            --exclude="storage/" \
+            --exclude=".env" \
+            ./ ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.APP_PATH }}/
+
+      - name: Pós-deploy (composer, vite, caches, fpm)
+        env:
+          APP_PATH: ${{ secrets.APP_PATH }}
+          WEB_USER: ${{ secrets.WEB_USER }}
+          WEB_GROUP: ${{ secrets.WEB_GROUP }}
+          PHP_FPM_SERVICE: ${{ secrets.PHP_FPM_SERVICE }}
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} <<'SSH'
+          set -euo pipefail
+          cd "$APP_PATH"
+
+          # Composer
+          if ! command -v composer >/dev/null 2>&1; then
+            php -r "copy('https://getcomposer.org/installer','composer-setup.php');"
+            php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+            rm composer-setup.php
+          fi
+          composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+          # Permissões
+          chown -R "${WEB_USER:-www-data}:${WEB_GROUP:-www-data}" storage bootstrap/cache || true
+          chmod -R ug+rwx storage bootstrap/cache || true
+
+          # Front (Vite)
+          install -d -m 775 -o "${WEB_USER:-www-data}" -g "${WEB_GROUP:-www-data}" /var/www/.npm
+          rm -rf node_modules
+          sudo -u "${WEB_USER:-www-data}" env npm_config_cache=/var/www/.npm npm ci --no-audit --no-fund || \
+          sudo -u "${WEB_USER:-www-data}" env npm_config_cache=/var/www/.npm npm install --no-audit --no-fund
+          sudo -u "${WEB_USER:-www-data}" env npm_config_cache=/var/www/.npm npx vite build
+
+          # Laravel
+          php artisan storage:link || true
+          php artisan migrate --force
+          php artisan optimize:clear
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+
+          # Reinicia PHP-FPM (seu servidor usa 8.4)
+          systemctl restart "${PHP_FPM_SERVICE:-php8.4-fpm}"
+
+          php artisan up
+          SSH
