@@ -24,6 +24,13 @@ PHP_FPM_SERVICE="${PHP_FPM_SERVICE:-php8.4-fpm}"
 WEB_USER="${WEB_USER:-www-data}"
 WEB_GROUP="${WEB_GROUP:-www-data}"
 BUILD_ASSETS="${BUILD_ASSETS:-false}"
+# WhatsApp Web (Baileys) systemd management
+WAWEB_MANAGE="${WAWEB_MANAGE:-true}"
+WAWEB_SERVICE_NAME="${WAWEB_SERVICE_NAME:-bot-whatsapp-web}"
+WAWEB_PORT="${WAWEB_PORT:-3001}"
+WAWEB_USER="${WAWEB_USER:-$WEB_USER}"
+WAWEB_GROUP="${WAWEB_GROUP:-$WEB_GROUP}"
+WAWEB_WORKDIR="${WAWEB_WORKDIR:-$APP/whatsapp_service}"
 BACKUP="${BACKUP:-true}"
 NPM_CACHE_DIR="${NPM_CACHE_DIR:-/var/www/.npm}"
 
@@ -112,5 +119,28 @@ systemctl restart "$PHP_FPM_SERVICE"
 
 # Sair do modo manutenção
 php artisan up || true
+
+# Gerenciar serviço do WhatsApp Web (Node/Baileys)
+if [ "$WAWEB_MANAGE" = "true" ]; then
+  log "Instalando/atualizando serviço systemd do WhatsApp Web ($WAWEB_SERVICE_NAME)"
+  UNIT_TEMPLATE="$APP/scripts/systemd/bot-whatsapp-web.service"
+  if [ -f "$UNIT_TEMPLATE" ]; then
+    TMP_UNIT=$(mktemp)
+    sed -e "s|{{PORT}}|$WAWEB_PORT|g" \
+        -e "s|{{USER}}|$WAWEB_USER|g" \
+        -e "s|{{GROUP}}|$WAWEB_GROUP|g" \
+        -e "s|{{WORKDIR}}|$WAWEB_WORKDIR|g" \
+        "$UNIT_TEMPLATE" > "$TMP_UNIT"
+    install -o root -g root -m 0644 "$TMP_UNIT" \
+      "/etc/systemd/system/${WAWEB_SERVICE_NAME}.service"
+    rm -f "$TMP_UNIT"
+    systemctl daemon-reload
+    systemctl enable --now "${WAWEB_SERVICE_NAME}.service"
+    log "Reiniciando serviço ${WAWEB_SERVICE_NAME}.service"
+    systemctl restart "${WAWEB_SERVICE_NAME}.service" || true
+  else
+    log "Template não encontrado: $UNIT_TEMPLATE (pulando gestão do serviço)"
+  fi
+fi
 
 log "Deploy concluído com sucesso."

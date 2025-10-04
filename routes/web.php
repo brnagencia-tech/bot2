@@ -27,6 +27,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/whatsapp/status', [WhatsAppWebController::class, 'status'])->name('whatsapp.status');
     Route::get('/whatsapp/qr', [WhatsAppWebController::class, 'qr'])->name('whatsapp.qr');
     Route::post('/whatsapp/logout', [WhatsAppWebController::class, 'logout'])->name('whatsapp.logout');
+    Route::post('/whatsapp/send', [WhatsAppWebController::class, 'send'])->name('whatsapp.send');
 });
 
 require __DIR__.'/auth.php';

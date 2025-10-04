@@ -1,0 +1,15 @@
+[Unit]
+Description=BotWhatsApp Web (Baileys)
+After=network.target
+
+[Service]
+WorkingDirectory={{WORKDIR}}
+ExecStart=/usr/bin/env node server.js
+Environment=PORT={{PORT}}
+Restart=always
+User={{USER}}
+Group={{GROUP}}
+
+[Install]
+WantedBy=multi-user.target
+

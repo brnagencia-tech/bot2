@@ -44,5 +44,21 @@ class WhatsAppWebController extends Controller
         }
         return response()->json($res->json());
     }
-}
 
+    public function send(Request $request)
+    {
+        $data = $request->validate([
+            'to' => ['required', 'string', 'max:32'],
+            'text' => ['required', 'string', 'max:1000'],
+        ]);
+
+        $base = rtrim(config('services.whatsapp_web.base_uri'), '/');
+        $res = Http::timeout(12)
+            ->acceptJson()
+            ->post($base.'/send-message', $data);
+        if (!$res->successful()) {
+            return response()->json(['ok' => false, 'status' => $res->status(), 'error' => $res->body()], 502);
+        }
+        return response()->json($res->json());
+    }
+}
