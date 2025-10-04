@@ -49,3 +49,8 @@ require __DIR__.'/auth.php';
 // Inbound from WhatsApp Web gateway
 Route::post('/waweb/inbound', [WaWebInboundController::class, 'inbound'])
     ->withoutMiddleware([\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class]);
+
+// ManyChat-like module routes (if present)
+if (file_exists(__DIR__.'/mc.php')) {
+    require __DIR__.'/mc.php';
+}

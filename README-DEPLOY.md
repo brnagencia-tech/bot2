@@ -114,7 +114,7 @@ sudo systemctl restart php*-fpm
 # Laravel
 php artisan route:list
 tail -n 200 storage/logs/laravel.log
- 
+
 ### 4) `dotenv example` (apenas garantir a variável)
 - **Atualize** `WHATSAPP_WEB_BASE_URL` no `.env.example` se o arquivo existir.
 
@@ -129,3 +129,29 @@ WHATSAPP_WEB_BASE_URL=http://127.0.0.1:3001
 - No servidor, garanta o caminho `/var/www/app/scripts/post_deploy.sh` existente.
 - Informe que preciso cadastrar os **secrets** `DO_HOST`, `DO_USER`, `DO_SSH_KEY` no GitHub.
 - Exiba um resumo dos arquivos criados/atualizados.
+
+## Módulo MC (ManyChat-like)
+- Rotas principais (auth + verified):
+  - `GET /mc/dashboard` — dashboard com métricas
+  - `GET /mc/inbox` — inbox/chat com QR
+  - `GET /mc/clients` — CRM básico dos contatos
+  - `GET /mc/whatsapp/status` — proxy status do serviço WA
+  - `GET /mc/whatsapp/qr` — QR Code (image/png)
+  - `POST /mc/message/send` — enviar mensagem
+  - `POST /mc/broadcast` — job de envio em massa (fila)
+  - `resource /mc/tags`, `resource /mc/segments`, `resource /mc/flows`
+
+- Variáveis .env (fallback padrão):
+  - `APP_URL=https://bot.agenciabrn.com.br`
+  - `WHATSAPP_SERVICE_URL=http://127.0.0.1:3001`
+  - `OPENAI_API_KEY=` (opcional)
+  - `OPENAI_MODEL=gpt-4o-mini`
+
+- Comandos artisan úteis:
+  - `php artisan migrate --force && php artisan optimize`
+  - `php artisan db:seed --class=Database\\Seeders\\McDemoSeeder`
+
+- Baileys + PM2:
+  - Serviço Node em `whatsapp_service/server.js` (PM2 name: `whatsapp`)
+  - Estado Baileys: `storage/whatsapp/state` (não apagar em deploy)
+  - Teste QR: acessar `/mc/inbox` logado; se não conectado, exibe QR.
