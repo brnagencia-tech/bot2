@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\AIController;
 use App\Http\Controllers\WhatsAppController;
+use App\Http\Controllers\WhatsAppWebController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -20,6 +21,12 @@ Route::middleware('auth')->group(function () {
 
     // AI proxy endpoint
     Route::post('/ai/generate', [AIController::class, 'generate'])->name('ai.generate');
+
+    // WhatsApp Web (não-oficial) UI + proxy
+    Route::get('/whatsapp', [WhatsAppWebController::class, 'index'])->name('whatsapp.index');
+    Route::get('/whatsapp/status', [WhatsAppWebController::class, 'status'])->name('whatsapp.status');
+    Route::get('/whatsapp/qr', [WhatsAppWebController::class, 'qr'])->name('whatsapp.qr');
+    Route::post('/whatsapp/logout', [WhatsAppWebController::class, 'logout'])->name('whatsapp.logout');
 });
 
 require __DIR__.'/auth.php';

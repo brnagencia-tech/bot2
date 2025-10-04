@@ -1,0 +1,17 @@
+{
+  "name": "whatsapp_service",
+  "version": "0.1.0",
+  "description": "WhatsApp Web service using Baileys for QR and messaging",
+  "main": "server.js",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@adiwajshing/baileys": "^6.7.9",
+    "express": "^4.19.2",
+    "pino": "^9.4.0",
+    "qrcode": "^1.5.3"
+  }
+}

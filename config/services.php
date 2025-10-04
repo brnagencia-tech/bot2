@@ -39,6 +39,10 @@ return [
         'base_uri' => env('AI_SERVICE_BASE_URL', 'http://localhost:9000'),
     ],
 
+    'whatsapp_web' => [
+        'base_uri' => env('WHATSAPP_WEB_BASE_URL', 'http://localhost:3001'),
+    ],
+
     'whatsapp' => [
         'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
         'token' => env('WHATSAPP_TOKEN'),

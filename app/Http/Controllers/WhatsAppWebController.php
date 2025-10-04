@@ -1,0 +1,48 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+
+class WhatsAppWebController extends Controller
+{
+    public function index()
+    {
+        return view('whatsapp.index');
+    }
+
+    public function status()
+    {
+        $base = rtrim(config('services.whatsapp_web.base_uri'), '/');
+        $res = Http::timeout(8)->get($base.'/status');
+        if (!$res->successful()) {
+            return response()->json(['error' => 'service_unavailable', 'status' => $res->status()], 502);
+        }
+        return response()->json($res->json());
+    }
+
+    public function qr()
+    {
+        $base = rtrim(config('services.whatsapp_web.base_uri'), '/');
+        $res = Http::timeout(8)->get($base.'/qr');
+        if ($res->status() === 204) {
+            return response()->noContent();
+        }
+        if (!$res->successful()) {
+            return response()->json(['error' => 'service_unavailable', 'status' => $res->status()], 502);
+        }
+        return response()->json($res->json());
+    }
+
+    public function logout()
+    {
+        $base = rtrim(config('services.whatsapp_web.base_uri'), '/');
+        $res = Http::timeout(8)->post($base.'/logout');
+        if (!$res->successful()) {
+            return response()->json(['error' => 'service_unavailable', 'status' => $res->status()], 502);
+        }
+        return response()->json($res->json());
+    }
+}
+
