@@ -33,6 +33,8 @@ async function initSocket() {
       } catch {
         latestQRDataUrl = null
       }
+      connected = false
+      stateText = 'qr'
     }
     if (connection === 'open') {
       connected = true
@@ -62,7 +64,8 @@ const app = express()
 app.use(express.json())
 
 app.get('/status', (req, res) => {
-  res.json({ connected, state: stateText, me: sock?.user || null })
+  const hasCreds = fs.existsSync(AUTH_DIR) && fs.readdirSync(AUTH_DIR).length > 0
+  res.json({ connected, state: stateText, me: sock?.user || null, hasCreds })
 })
 
 app.get('/qr', async (req, res) => {
@@ -91,6 +94,24 @@ app.post('/logout', async (req, res) => {
   }
 })
 
+app.post('/reset', async (req, res) => {
+  try {
+    try { await sock?.logout() } catch {}
+    connected = false
+    latestQR = null
+    latestQRDataUrl = null
+    // wipe auth
+    try {
+      fs.rmSync(AUTH_DIR, { recursive: true, force: true })
+    } catch {}
+    fs.mkdirSync(AUTH_DIR, { recursive: true })
+    setTimeout(() => initSocket().catch(() => {}), 500)
+    res.json({ ok: true, reset: true })
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e) })
+  }
+})
+
 app.post('/send-message', async (req, res) => {
   const { to, text } = req.body || {}
   if (!to || !text) return res.status(400).json({ error: 'missing to or text' })
@@ -106,4 +127,3 @@ app.post('/send-message', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`[whatsapp_service] listening on :${PORT}`)
 })
-

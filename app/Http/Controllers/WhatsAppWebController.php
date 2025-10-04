@@ -61,4 +61,14 @@ class WhatsAppWebController extends Controller
         }
         return response()->json($res->json());
     }
+
+    public function reset()
+    {
+        $base = rtrim(config('services.whatsapp_web.base_uri'), '/');
+        $res = Http::timeout(12)->post($base.'/reset');
+        if (!$res->successful()) {
+            return response()->json(['error' => 'service_unavailable', 'status' => $res->status()], 502);
+        }
+        return response()->json($res->json());
+    }
 }

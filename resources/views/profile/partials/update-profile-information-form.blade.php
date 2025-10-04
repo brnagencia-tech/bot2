@@ -13,7 +13,7 @@
         @csrf
     </form>
 
-    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6">
+    <form method="post" action="{{ route('profile.update') }}" class="mt-6 space-y-6" enctype="multipart/form-data">
         @csrf
         @method('patch')
 
@@ -21,6 +21,32 @@
             <x-input-label for="name" :value="__('Name')" />
             <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $user->name)" required autofocus autocomplete="name" />
             <x-input-error class="mt-2" :messages="$errors->get('name')" />
+        </div>
+
+        <div>
+            <x-input-label for="phone" :value="__('Telefone')" />
+            <x-text-input id="phone" name="phone" type="text" class="mt-1 block w-full" :value="old('phone', $user->phone)" autocomplete="tel" />
+            <x-input-error class="mt-2" :messages="$errors->get('phone')" />
+        </div>
+
+        <div>
+            <x-input-label for="theme" :value="__('Tema')" />
+            <select id="theme" name="theme" class="mt-1 block w-full rounded border-gray-300">
+                <option value="light" @selected(old('theme', $user->theme ?? 'light') === 'light')>Claro</option>
+                <option value="dark" @selected(old('theme', $user->theme ?? 'light') === 'dark')>Escuro</option>
+            </select>
+            <x-input-error class="mt-2" :messages="$errors->get('theme')" />
+        </div>
+
+        <div>
+            <x-input-label for="logo" :value="__('Logomarca (PNG/JPG/WEBP)')" />
+            <input id="logo" name="logo" type="file" accept="image/*" class="mt-1 block w-full" />
+            @if($user->logo_path)
+                <div class="mt-2">
+                    <img src="{{ asset('storage/'.$user->logo_path) }}" alt="Logo atual" class="h-12" />
+                </div>
+            @endif
+            <x-input-error class="mt-2" :messages="$errors->get('logo')" />
         </div>
 
         <div>

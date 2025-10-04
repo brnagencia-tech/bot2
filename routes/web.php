@@ -29,10 +29,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/whatsapp/qr', [WhatsAppWebController::class, 'qr'])->name('whatsapp.qr');
     Route::post('/whatsapp/logout', [WhatsAppWebController::class, 'logout'])->name('whatsapp.logout');
     Route::post('/whatsapp/send', [WhatsAppWebController::class, 'send'])->name('whatsapp.send');
+    Route::post('/whatsapp/reset', [WhatsAppWebController::class, 'reset'])->name('whatsapp.reset');
 
     // WhatsApp Cloud API (oficial)
     Route::get('/whatsapp-cloud', [WhatsAppCloudController::class, 'index'])->name('whatsapp.cloud.index');
     Route::post('/whatsapp-cloud/send', [WhatsAppCloudController::class, 'send'])->name('whatsapp.cloud.send');
+
+    // Configurações
+    Route::view('/settings', 'settings.index')->name('settings.index');
 });
 
 require __DIR__.'/auth.php';

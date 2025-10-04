@@ -20,6 +20,10 @@
                                 @csrf
                                 <button type="submit" class="px-3 py-2 bg-red-600 text-white rounded">Desconectar</button>
                             </form>
+                            <form id="wa_reset_form" method="post" action="{{ route('whatsapp.reset') }}">
+                                @csrf
+                                <button type="submit" class="px-3 py-2 bg-amber-600 text-white rounded">Resetar sessão</button>
+                            </form>
                         </div>
                     </div>
 
@@ -67,6 +71,7 @@
             const qrPh = document.getElementById('qr_placeholder');
             const refreshBtn = document.getElementById('wa_refresh');
             const logoutForm = document.getElementById('wa_logout_form');
+            const resetForm = document.getElementById('wa_reset_form');
             const sendBtn = document.getElementById('wa_send');
             const inputTo = document.getElementById('wa_to');
             const inputText = document.getElementById('wa_text');
@@ -121,6 +126,15 @@
 
             refreshBtn.addEventListener('click', async () => { await fetchStatus(); await fetchQR(); });
             logoutForm.addEventListener('submit', doLogout);
+            resetForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                try {
+                    await fetch("{{ route('whatsapp.reset') }}", { method: 'POST', headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json' } });
+                    await fetchStatus();
+                    await fetchQR();
+                } catch {}
+            });
             sendBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 const token = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
