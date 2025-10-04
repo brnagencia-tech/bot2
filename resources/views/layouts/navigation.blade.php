@@ -15,8 +15,11 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    <x-nav-link :href="route('whatsapp.cloud.index')" :active="request()->routeIs('whatsapp.cloud.*')">
+                        {{ __('WhatsApp Cloud') }}
+                    </x-nav-link>
                     <x-nav-link :href="route('whatsapp.index')" :active="request()->routeIs('whatsapp.*')">
-                        {{ __('WhatsApp') }}
+                        {{ __('WhatsApp (Web)') }}
                     </x-nav-link>
                 </div>
             </div>
@@ -73,8 +76,11 @@
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('whatsapp.cloud.index')" :active="request()->routeIs('whatsapp.cloud.*')">
+                {{ __('WhatsApp Cloud') }}
+            </x-responsive-nav-link>
             <x-responsive-nav-link :href="route('whatsapp.index')" :active="request()->routeIs('whatsapp.*')">
-                {{ __('WhatsApp') }}
+                {{ __('WhatsApp (Web)') }}
             </x-responsive-nav-link>
         </div>
 
