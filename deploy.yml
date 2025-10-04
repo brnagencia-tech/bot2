@@ -1,0 +1,117 @@
+name: Deploy Manual — DigitalOcean (SSH)
+
+on:
+  workflow_dispatch: {}   # executa manualmente no GitHub
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout do repositório
+      # Se você usa submodules, adicione: with: submodules: recursive
+        uses: actions/checkout@v4
+
+      # --- SANITY CHECKS: garantem que os secrets existem e não estão vazios ---
+      - name: Validar secret da CHAVE PRIVADA (DEPLAY_AUTOMATICO_3)
+        shell: bash
+        run: |
+          test -n "${{ secrets.DEPLAY_AUTOMATICO_3 }}" || { echo "❌ Secret DEPLAY_AUTOMATICO_3 vazio/inacessível"; exit 1; }
+      - name: Validar demais secrets
+        shell: bash
+        run: |
+          test -n "${{ secrets.SSH_HOST }}" || { echo "❌ Secret SSH_HOST faltando"; exit 1; }
+          test -n "${{ secrets.SSH_USER }}" || { echo "❌ Secret SSH_USER faltando"; exit 1; }
+          test -n "${{ secrets.APP_PATH }}" || { echo "❌ Secret APP_PATH faltando"; exit 1; }
+          test -n "${{ secrets.PHP_FPM_SERVICE }}" || { echo "❌ Secret PHP_FPM_SERVICE faltando"; exit 1; }
+          test -n "${{ secrets.WEB_USER }}" || { echo "❌ Secret WEB_USER faltando"; exit 1; }
+          test -n "${{ secrets.WEB_GROUP }}" || { echo "❌ Secret WEB_GROUP faltando"; exit 1; }
+
+      # --- SSH pronto para usar a chave privada salva como DEPLAY_AUTOMATICO_3 ---
+      - name: Iniciar ssh-agent com a chave privada
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLAY_AUTOMATICO_3 }}
+
+      - name: Adicionar host à known_hosts
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # --- Copia o código (sem .env, storage, vendor, node_modules, .git) ---
+      - name: Sincronizar código com o servidor (rsync)
+        shell: bash
+        run: |
+          rsync -az --delete \
+            --exclude='.git/' \
+            --exclude='.github/' \
+            --exclude='.env' \
+            --exclude='storage/' \
+            --exclude='vendor/' \
+            --exclude='node_modules/' \
+            --exclude='public/storage' \
+            ./ "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.APP_PATH }}/"
+
+      # --- Executa o deploy no servidor ---
+      - name: Executar deploy remoto (composer, vite, migrate, caches, FPM)
+        shell: bash
+        run: |
+          ssh -o BatchMode=yes "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'EOSSH'
+            set -euo pipefail
+            APP_PATH='${{ secrets.APP_PATH }}'
+            WEB_USER='${{ secrets.WEB_USER }}'
+            WEB_GROUP='${{ secrets.WEB_GROUP }}'
+            PHP_FPM_SERVICE='${{ secrets.PHP_FPM_SERVICE }}'
+
+            cd "$APP_PATH"
+
+            # Modo manutenção
+            php artisan down || true
+
+            # Permissões básicas
+            chown -R "$WEB_USER:$WEB_GROUP" "$APP_PATH"
+            find storage bootstrap/cache -type d -exec chmod 775 {} \; || true
+
+            # Composer (instala se não existir)
+            if ! command -v composer >/dev/null 2>&1; then
+              php -r "copy('https://getcomposer.org/installer','composer-setup.php');"
+              php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+              rm composer-setup.php
+            fi
+
+            # Dependências PHP
+            sudo -u "$WEB_USER" composer install \
+              --no-dev --prefer-dist --optimize-autoloader --no-interaction
+
+            # Link de storage
+            php artisan storage:link || true
+
+            # Frontend (Vite)
+            install -d -m 775 -o "$WEB_USER" -g "$WEB_GROUP" /var/www/.npm
+            rm -rf node_modules
+            sudo -u "$WEB_USER" env npm_config_cache=/var/www/.npm npm ci --no-audit --no-fund \
+              || sudo -u "$WEB_USER" env npm_config_cache=/var/www/.npm npm install --no-audit --no-fund
+            sudo -u "$WEB_USER" env npm_config_cache=/var/www/.npm npx vite build
+
+            # Banco & caches
+            php artisan migrate --force
+            php artisan optimize:clear
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Reinicia o PHP-FPM
+            systemctl restart "$PHP_FPM_SERVICE" || sudo systemctl restart "$PHP_FPM_SERVICE"
+
+            # Volta o app
+            php artisan up
+
+            # Ping rápido de saúde
+            echo "OK - deploy finalizado em $(hostname) $(date -Iseconds)"
+          EOSSH
